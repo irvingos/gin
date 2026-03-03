@@ -181,11 +181,12 @@ type Engine struct {
 	noRoute          HandlersChain
 	noMethod         HandlersChain
 	pool             sync.Pool
-	trees            methodTrees
-	maxParams        uint16
-	maxSections      uint16
-	trustedProxies   []string
-	trustedCIDRs     []*net.IPNet
+	// 路由树按 HTTP method 分组
+	trees          methodTrees
+	maxParams      uint16
+	maxSections    uint16
+	trustedProxies []string
+	trustedCIDRs   []*net.IPNet
 }
 
 var _ IRouter = (*Engine)(nil)
@@ -660,17 +661,21 @@ func (engine *Engine) RunListener(listener net.Listener) (err error) {
 
 // ServeHTTP conforms to the http.Handler interface.
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// NOTE sync.Once 的经典用法
 	engine.routeTreesUpdated.Do(func() {
 		engine.updateRouteTrees()
 	})
 
+	// 从 Context 池中取出一个 gin.Context
 	c := engine.pool.Get().(*Context)
+	// 延迟 reset，用 -> 放回 -> 取出 -> reset -> 用
 	c.writermem.reset(w)
 	c.Request = req
 	c.reset()
 
 	engine.handleHTTPRequest(c)
 
+	// 放回 pool
 	engine.pool.Put(c)
 }
 
@@ -707,10 +712,12 @@ func (engine *Engine) handleHTTPRequest(c *Context) {
 	// Find root of the tree for the given HTTP method
 	t := engine.trees
 	for i, tl := 0, len(t); i < tl; i++ {
+		// 先找到具体的 method
 		if t[i].method != httpMethod {
 			continue
 		}
 		root := t[i].root
+		// 在 method 的路由树下找到目标路由节点
 		// Find route in tree
 		value := root.getValue(rPath, c.params, c.skippedNodes, unescape)
 		if value.params != nil {

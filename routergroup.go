@@ -73,7 +73,7 @@ func (group *RouterGroup) Group(relativePath string, handlers ...HandlerFunc) *R
 	return &RouterGroup{
 		Handlers: group.combineHandlers(handlers),
 		basePath: group.calculateAbsolutePath(relativePath),
-		engine:   group.engine,
+		engine:   group.engine, // 这里返回的是父 group 的 engine，所以最终的路由都挂在同一个 engine 下
 	}
 }
 

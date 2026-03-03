@@ -43,7 +43,7 @@ func (ps Params) ByName(name string) (va string) {
 }
 
 type methodTree struct {
-	method string
+	method string // HTTP method
 	root   *node
 }
 
